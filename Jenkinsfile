@@ -1,6 +1,25 @@
+def packageAndArchive(buildMode, packageName, exclude) {
+	zipFile = "bin\\${packageName}.zip"
+	packageDir = "bin\\${packageName}\\"
+
+	bat "IF EXIST ${zipFile} DEL ${zipFile}"
+	bat "IF EXIST ${packageDir} RMDIR /S /Q ${packageDir}"
+
+	bat "xcopy bin\\x64\\${buildMode} ${packageDir}"
+	if (exclude.length() > 0) {
+		bat "del ${packageDir}${exclude}"
+	}
+	if (buildMode == "Release") {
+		bat "del ${packageDir}*.pdb"
+	}
+	powershell "Add-Type -Assembly System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory(\"\$PWD\\${packageDir}\", \"\$PWD\\${zipFile}\")"
+	archiveArtifacts artifacts: zipFile, caseSensitive: false, onlyIfSuccessful: true
+}
+
 node {
 	stage('Checkout') {
 		checkout scm
+		bat 'git pull --tags'
 	}
 
 	stage('Acquire SE') {
@@ -14,13 +33,19 @@ node {
 	}
 
 	stage('Build') {
-		bat "\"${tool 'MSBuild'}msbuild\" Torch.sln /p:Configuration=Release /p:Platform=x64 /t:TransformOnBuild"
-		bat "\"${tool 'MSBuild'}msbuild\" Torch.sln /p:Configuration=Release /p:Platform=x64"
+		currentBuild.description = bat(returnStdout: true, script: '@powershell -File Versioning/version.ps1').trim()
+		if (env.BRANCH_NAME == "master") {
+			buildMode = "Release"
+		} else {
+			buildMode = "Debug"
+		}
+		bat "\"${tool 'MSBuild'}msbuild\" Torch.sln /p:Configuration=${buildMode} /p:Platform=x64 /t:Clean"
+		bat "\"${tool 'MSBuild'}msbuild\" Torch.sln /p:Configuration=${buildMode} /p:Platform=x64"
 	}
 
 	stage('Test') {
 		bat 'IF NOT EXIST reports MKDIR reports'
-		bat "\"packages/xunit.runner.console.2.2.0/tools/xunit.console.exe\" \"bin-test/x64/Release/Torch.Tests.dll\" \"bin-test/x64/Release/Torch.Server.Tests.dll\" \"bin-test/x64/Release/Torch.Client.Tests.dll\" -parallel none -xml \"reports/Torch.Tests.xml\""
+		bat "\"packages/xunit.runner.console.2.2.0/tools/xunit.console.exe\" \"bin-test/x64/${buildMode}/Torch.Tests.dll\" \"bin-test/x64/${buildMode}/Torch.Server.Tests.dll\" \"bin-test/x64/${buildMode}/Torch.Client.Tests.dll\" -parallel none -xml \"reports/Torch.Tests.xml\""
 	    step([
 	        $class: 'XUnitBuilder',
 	        thresholdMode: 1,
@@ -37,9 +62,22 @@ node {
 	}
 
 	stage('Archive') {
-		bat "IF EXIST bin\\torch-${BRANCH_NAME}.zip DEL bin\\torch-${BRANCH_NAME}.zip"
-		bat "powershell -Command \"Add-Type -Assembly System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory(\\\"\$PWD\\bin\\x64\\Release\\\", \\\"\$PWD\\bin\\torch-${BRANCH_NAME}.zip\\\")\""
-		archiveArtifacts artifacts: 'bin/torch-${BRANCH_NAME}.zip', caseSensitive: false, fingerprint: true, onlyIfSuccessful: true
-		archiveArtifacts artifacts: 'bin/x64/Release/Torch*', caseSensitive: false, fingerprint: true, onlyIfSuccessful: true
+		archiveArtifacts artifacts: "bin/x64/${buildMode}/Torch*", caseSensitive: false, fingerprint: true, onlyIfSuccessful: true
+
+		packageAndArchive(buildMode, "torch-server", "Torch.Client*")
+
+		packageAndArchive(buildMode, "torch-client", "Torch.Server*")
+	}
+
+	if (env.BRANCH_NAME == "master") {
+		gitVersion = bat(returnStdout: true, script: "@git describe --tags").trim()
+		gitSimpleVersion = bat(returnStdout: true, script: "@git describe --tags --abbrev=0").trim()
+		if (gitVersion == gitSimpleVersion) {
+			stage('${buildMode}') {
+				withCredentials([usernamePassword(credentialsId: 'torch-github', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+					powershell "& ./Jenkins/${buildMode}.ps1 \"https://api.github.com/repos/TorchAPI/Torch/\" \"$gitSimpleVersion\" \"$USERNAME:$PASSWORD\" @(\"bin/torch-server.zip\", \"bin/torch-client.zip\")"
+				}
+			}
+		}
 	}
 }

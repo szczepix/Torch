@@ -156,16 +156,22 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\Versioning\AssemblyVersion.cs">
+      <Link>Properties\AssemblyVersion.cs</Link>
+    </Compile>
     <Compile Include="ConnectionState.cs" />
-    <Compile Include="IChatMessage.cs" />
     <Compile Include="ITorchConfig.cs" />
     <Compile Include="Managers\DependencyManagerExtensions.cs" />
     <Compile Include="Managers\DependencyProviderExtensions.cs" />
+    <Compile Include="Managers\IChatManagerClient.cs" />
+    <Compile Include="Managers\IChatManagerServer.cs" />
     <Compile Include="Managers\IDependencyManager.cs" />
     <Compile Include="Managers\IDependencyProvider.cs" />
     <Compile Include="Managers\IManager.cs" />
-    <Compile Include="Managers\IMultiplayerManager.cs" />
+    <Compile Include="Managers\IMultiplayerManagerClient.cs" />
+    <Compile Include="Managers\IMultiplayerManagerBase.cs" />
     <Compile Include="IPlayer.cs" />
+    <Compile Include="Managers\IMultiplayerManagerServer.cs" />
     <Compile Include="Managers\INetworkManager.cs" />
     <Compile Include="Managers\IPluginManager.cs" />
     <Compile Include="Plugins\ITorchPlugin.cs" />
@@ -175,24 +181,15 @@
     <Compile Include="ModAPI\Ingame\GridExtensions.cs" />
     <Compile Include="Plugins\PluginAttribute.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Properties\AssemblyInfoGen.cs">
-      <DependentUpon>AssemblyInfoGen.tt</DependentUpon>
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-    </Compile>
     <Compile Include="ServerState.cs" />
     <Compile Include="ModAPI\TorchAPI.cs" />
     <Compile Include="Session\ITorchSession.cs" />
     <Compile Include="Session\ITorchSessionManager.cs" />
+    <Compile Include="Session\TorchSessionState.cs" />
+    <Compile Include="TorchGameState.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Properties\AssemblyInfoGen.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>AssemblyInfoGen.cs</LastGenOutput>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
